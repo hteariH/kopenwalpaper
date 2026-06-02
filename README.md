@@ -150,6 +150,25 @@ A paired pass-through `passthrough.vert` is bundled: under the OpenGL RHI backen
 the vertex stage must export `qt_TexCoord0` at an explicit `location` matching
 the fragment input, otherwise GL linking spams errors.
 
+## Import a Wallpaper Engine project
+
+Point `import-we.py` at a Wallpaper Engine project folder (the one with
+`project.json`), a `project.json`, or a bare Steam Workshop id — it reads the
+project and applies the matching KOpenWallpaper plugin:
+
+```bash
+./import-we.py ~/.steam/steam/steamapps/workshop/content/431960/123456789
+./import-we.py /path/to/project --print     # show what it would do, don't apply
+```
+
+| WE type | mapped to |
+|---------|-----------|
+| `video` (mp4/webm/…) | KOpenWallpaper (Video) |
+| `web` (index.html)   | KOpenWallpaper (Web) |
+| gif / animated image | KOpenWallpaper (GIF) |
+| `scene` (`scene.pkg`) | **not supported** — proprietary binary, skipped with a message |
+| `application`         | **not supported** — executable |
+
 ## Apply from the command line
 
 ```bash
@@ -176,6 +195,7 @@ plugins/
 install.sh          # build shaders + install all plugins
 uninstall.sh
 compile-shaders.sh  # GLSL → .qsb (via qsb from qt6-shadertools)
+import-we.py        # apply a Wallpaper Engine project (video/web/gif)
 ```
 
 ## Performance / notes
@@ -209,7 +229,7 @@ This matters a lot on laptops / hybrid-GPU setups.
 - [x] Audio reactivity (PipeWire → FFT → shader uniforms)
 - [x] Runtime compilation of user `.frag` files from the config page
 - [x] Preset gallery / live previews in the config UI
-- [ ] Import Wallpaper Engine projects (scene.pkg)
+- [x] Import Wallpaper Engine projects — video / web / gif via `import-we.py` (scene.pkg is proprietary and out of scope)
 
 ## Contributing
 
