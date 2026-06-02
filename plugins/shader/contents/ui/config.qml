@@ -1,5 +1,6 @@
 /*
  * KOpenWallpaper (Shader) — configuration page.
+ * The shader is chosen from a gallery of live preview tiles.
  */
 import QtQuick
 import QtQuick.Controls as QQC2
@@ -24,43 +25,106 @@ Kirigami.FormLayout {
     property alias cfg_BokehAmount: bokehSlider.value
     property alias cfg_Vignette: vignetteSlider.value
 
-    // Reusable 0–200 % effect slider row, used for the Living-image controls.
-    component FxSlider: RowLayout {
-        property alias value: slider.value
-        enabled: presetBox.currentValue === "image"
-        QQC2.Slider {
-            id: slider
-            from: 0.0; to: 2.0; stepSize: 0.05
-            Layout.minimumWidth: Kirigami.Units.gridUnit * 12
+    readonly property var knownPresets: ["image", "plasma", "waves", "starfield", "custom"]
+
+    // Shared ~20 fps clock for the preview tiles (only while the page is shown).
+    property real previewTime: 0
+    Timer {
+        interval: 50; repeat: true; running: cfg.visible
+        onTriggered: cfg.previewTime += 0.05
+    }
+    // Texture for the "image" preview tile.
+    Image {
+        id: previewImg
+        visible: false; cache: false; asynchronous: true
+        source: cfg.cfg_ImageUrl
+        sourceSize.width: 512
+    }
+
+    // Normalize a stale/unknown saved preset (e.g. a removed "blueneko").
+    Component.onCompleted: if (knownPresets.indexOf(cfg_Preset) === -1) cfg_Preset = "image"
+
+    // --- one live shader preview (canonical UBO, same as main.qml) ---
+    component ShaderPreview: ShaderEffect {
+        property string fragName
+        blending: false
+        property real iTime: cfg.previewTime
+        property vector2d iResolution: Qt.vector2d(width, height)
+        property real imageAspect: previewImg.implicitHeight > 0
+                                   ? previewImg.implicitWidth / previewImg.implicitHeight : 1.0
+        property real breatheAmount: cfg.cfg_BreatheAmount
+        property real swayAmount: cfg.cfg_SwayAmount
+        property real aberration: cfg.cfg_Aberration
+        property real bokehAmount: cfg.cfg_BokehAmount
+        property real vignetteAmount: cfg.cfg_Vignette
+        property variant source: previewImg
+        vertexShader: Qt.resolvedUrl("../shaders/passthrough.vert.qsb")
+        fragmentShader: Qt.resolvedUrl("../shaders/" + fragName + ".frag.qsb")
+    }
+
+    // --- one clickable gallery tile ---
+    component PresetTile: Rectangle {
+        id: tile
+        property string presetKey
+        property string label
+        readonly property bool selected: cfg.cfg_Preset === presetKey
+        width: Kirigami.Units.gridUnit * 9
+        height: Kirigami.Units.gridUnit * 6
+        radius: 4
+        color: "black"
+        border.width: selected ? 3 : 1
+        border.color: selected ? Kirigami.Theme.highlightColor
+                               : Kirigami.Theme.disabledTextColor
+
+        // Live shader preview for the built-in/image presets…
+        ShaderPreview {
+            anchors.fill: parent
+            anchors.margins: tile.border.width
+            visible: tile.presetKey !== "custom"
+                     && (tile.presetKey !== "image" || cfg.cfg_ImageUrl.length > 0)
+            fragName: tile.presetKey
         }
+        // …or an icon for "custom" / a hint for "image" with no picture yet.
+        Kirigami.Icon {
+            anchors.centerIn: parent
+            width: Kirigami.Units.iconSizes.medium; height: width
+            visible: tile.presetKey === "custom"
+                     || (tile.presetKey === "image" && cfg.cfg_ImageUrl.length === 0)
+            source: tile.presetKey === "custom" ? "code-context" : "viewimage"
+        }
+
         QQC2.Label {
-            text: Math.round(slider.value * 100) + "%"
-            Layout.minimumWidth: Kirigami.Units.gridUnit * 2.5
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottomMargin: 2
+            text: tile.label
+            font: Kirigami.Theme.smallFont
+            color: "white"
+            style: Text.Outline; styleColor: "black"
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: cfg.cfg_Preset = tile.presetKey
         }
     }
 
-    QQC2.ComboBox {
-        id: presetBox
+    Flow {
         Kirigami.FormData.label: i18n("Shader:")
-        textRole: "text"
-        valueRole: "value"
-        model: [
-            { text: i18n("Living image (animate a picture)"), value: "image" },
-            { text: i18n("Plasma"), value: "plasma" },
-            { text: i18n("Waves"), value: "waves" },
-            { text: i18n("Starfield"), value: "starfield" },
-            { text: i18n("Custom (.qsb)…"), value: "custom" }
-        ]
-        currentIndex: Math.max(0, indexOfValue(cfg.cfg_Preset))
-        // Sync the stored value to whatever is actually shown — including the
-        // index-0 fallback when the saved preset is unknown (e.g. an old
-        // "blueneko"); otherwise the field-enable checks below would desync.
-        onCurrentValueChanged: cfg.cfg_Preset = currentValue
+        Layout.maximumWidth: Kirigami.Units.gridUnit * 28
+        spacing: Kirigami.Units.smallSpacing
+
+        PresetTile { presetKey: "image";     label: i18n("Living image") }
+        PresetTile { presetKey: "plasma";    label: i18n("Plasma") }
+        PresetTile { presetKey: "waves";     label: i18n("Waves") }
+        PresetTile { presetKey: "starfield"; label: i18n("Starfield") }
+        PresetTile { presetKey: "custom";    label: i18n("Custom") }
     }
 
     RowLayout {
         Kirigami.FormData.label: i18n("Image:")
-        enabled: presetBox.currentValue === "image"
+        enabled: cfg.cfg_Preset === "image"
 
         QQC2.TextField {
             id: imageField
@@ -76,7 +140,7 @@ Kirigami.FormLayout {
 
     RowLayout {
         Kirigami.FormData.label: i18n("Custom shader:")
-        enabled: presetBox.currentValue === "custom"
+        enabled: cfg.cfg_Preset === "custom"
 
         QQC2.TextField {
             id: customField
@@ -91,7 +155,7 @@ Kirigami.FormLayout {
     }
 
     QQC2.Label {
-        visible: presetBox.currentValue === "custom"
+        visible: cfg.cfg_Preset === "custom"
         Layout.maximumWidth: Kirigami.Units.gridUnit * 22
         wrapMode: Text.WordWrap
         font: Kirigami.Theme.smallFont
@@ -112,7 +176,7 @@ Kirigami.FormLayout {
     Kirigami.Separator {
         Kirigami.FormData.label: i18n("Living-image effects")
         Kirigami.FormData.isSection: true
-        visible: presetBox.currentValue === "image"
+        visible: cfg.cfg_Preset === "image"
     }
 
     FxSlider {
@@ -140,6 +204,21 @@ Kirigami.FormLayout {
         id: pauseBox
         Kirigami.FormData.label: i18n("Power saving:")
         text: i18n("Pause while a window is maximized or fullscreen")
+    }
+
+    // Reusable 0–200 % effect slider row, used for the Living-image controls.
+    component FxSlider: RowLayout {
+        property alias value: slider.value
+        enabled: cfg.cfg_Preset === "image"
+        QQC2.Slider {
+            id: slider
+            from: 0.0; to: 2.0; stepSize: 0.05
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 12
+        }
+        QQC2.Label {
+            text: Math.round(slider.value * 100) + "%"
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 2.5
+        }
     }
 
     QtDialogs.FileDialog {

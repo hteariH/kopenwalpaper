@@ -192,7 +192,7 @@ This matters a lot on laptops / hybrid-GPU setups.
 - [x] Pause animation when a window is maximised / fullscreen (battery saving) via `org.kde.taskmanager`
 - [ ] Audio reactivity (PipeWire → FFT → shader uniforms)
 - [x] Runtime compilation of user `.frag` files from the config page
-- [ ] Preset gallery / live previews in the config UI
+- [x] Preset gallery / live previews in the config UI
 - [ ] Import Wallpaper Engine projects (scene.pkg)
 
 ## Contributing
