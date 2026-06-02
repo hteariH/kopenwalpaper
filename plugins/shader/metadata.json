@@ -14,7 +14,7 @@
         "License": "MIT",
         "Name": "KOpenWallpaper (Shader)",
         "Version": "0.1.0",
-        "Website": "https://github.com/kopenwalpaper"
+        "Website": "https://github.com/htearih/kopenwalpaper"
     },
     "X-KDE-ParentApp": "org.kde.plasmashell"
 }

@@ -21,7 +21,7 @@
         ],
         "Name": "KOpenWallpaper (Video)",
         "Version": "0.1.0",
-        "Website": "https://github.com/kopenwalpaper"
+        "Website": "https://github.com/htearih/kopenwalpaper"
     },
     "MimeType": "video/mp4;video/webm;video/x-matroska;video/ogg;video/quicktime;",
     "X-KDE-ParentApp": "org.kde.plasmashell",

@@ -1,6 +1,6 @@
 # KOpenWallpaper
 
-[![Lint & build shaders](https://github.com/aberkunsky/kopenwalpaper/actions/workflows/lint.yml/badge.svg)](https://github.com/aberkunsky/kopenwalpaper/actions/workflows/lint.yml)
+[![Lint & build shaders](https://github.com/htearih/kopenwalpaper/actions/workflows/lint.yml/badge.svg)](https://github.com/htearih/kopenwalpaper/actions/workflows/lint.yml)
 
 Animated, living wallpapers for **KDE Plasma 6** — an open-source Wallpaper
 Engine alternative. Each wallpaper type is a native *Plasma wallpaper plugin*:
@@ -40,7 +40,7 @@ Plasma itself (no extra daemon, no separate window).
 ## Install
 
 ```bash
-git clone https://github.com/aberkunsky/kopenwalpaper.git
+git clone https://github.com/htearih/kopenwalpaper.git
 cd kopenwalpaper
 ./install.sh             # compile shaders + install ALL plugins
 ./install.sh video gif   # …or only the named plugins

@@ -20,7 +20,7 @@
         ],
         "Name": "KOpenWallpaper (GIF)",
         "Version": "0.1.0",
-        "Website": "https://github.com/kopenwalpaper"
+        "Website": "https://github.com/htearih/kopenwalpaper"
     },
     "MimeType": "image/gif;image/apng;image/webp;image/png;",
     "X-KDE-ParentApp": "org.kde.plasmashell",
