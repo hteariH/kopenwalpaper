@@ -1,5 +1,7 @@
 # KOpenWallpaper
 
+[![Lint & build shaders](https://github.com/aberkunsky/kopenwalpaper/actions/workflows/lint.yml/badge.svg)](https://github.com/aberkunsky/kopenwalpaper/actions/workflows/lint.yml)
+
 Animated, living wallpapers for **KDE Plasma 6** — an open-source Wallpaper
 Engine alternative. Each wallpaper type is a native *Plasma wallpaper plugin*:
 it shows up under **Wallpaper Type**, renders on every monitor and is managed by
