@@ -1,0 +1,33 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "aberkunsky@gmail.com",
+                "Name": "kopenwalpaper"
+            }
+        ],
+        "Category": "",
+        "Description": "Animated GIF / APNG / WebP wallpapers for KDE Plasma",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "com.github.kopenwalpaper.gif",
+        "License": "MIT",
+        "MimeTypes": [
+            "image/gif",
+            "image/apng",
+            "image/webp",
+            "image/png"
+        ],
+        "Name": "KOpenWallpaper (GIF)",
+        "Version": "0.1.0",
+        "Website": "https://github.com/kopenwalpaper"
+    },
+    "MimeType": "image/gif;image/apng;image/webp;image/png;",
+    "X-KDE-ParentApp": "org.kde.plasmashell",
+    "X-Plasma-DropMimeTypes": [
+        "image/gif",
+        "image/apng",
+        "image/webp",
+        "image/png"
+    ]
+}

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+  <kcfgfile name=""/>
+
+  <group name="General">
+    <entry name="Preset" type="String">
+      <label>Built-in shader name (plasma/waves/starfield) or "custom"</label>
+      <default>plasma</default>
+    </entry>
+    <entry name="CustomShaderUrl" type="String">
+      <label>Path/URL to a precompiled .frag.qsb when Preset == custom</label>
+      <default></default>
+    </entry>
+    <entry name="ImageUrl" type="String">
+      <label>Optional image for image-based shaders (overrides preset image)</label>
+      <default></default>
+    </entry>
+    <entry name="Speed" type="Double">
+      <label>Animation time multiplier</label>
+      <default>1.0</default>
+    </entry>
+
+    <!-- Living-image effect strengths: 1.0 = default look, 0 = off -->
+    <entry name="BreatheAmount" type="Double">
+      <label>Breathing zoom strength</label>
+      <default>1.0</default>
+    </entry>
+    <entry name="SwayAmount" type="Double">
+      <label>Parallax sway strength</label>
+      <default>1.0</default>
+    </entry>
+    <entry name="Aberration" type="Double">
+      <label>Chromatic aberration strength</label>
+      <default>1.0</default>
+    </entry>
+    <entry name="BokehAmount" type="Double">
+      <label>Drifting bokeh particles strength</label>
+      <default>1.0</default>
+    </entry>
+    <entry name="Vignette" type="Double">
+      <label>Vignette darkening strength</label>
+      <default>1.0</default>
+    </entry>
+  </group>
+</kcfg>

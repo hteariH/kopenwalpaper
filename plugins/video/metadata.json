@@ -1,0 +1,35 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "aberkunsky@gmail.com",
+                "Name": "kopenwalpaper"
+            }
+        ],
+        "Category": "",
+        "Description": "Animated video wallpapers for KDE Plasma — a Wallpaper Engine alternative",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "com.github.kopenwalpaper.video",
+        "License": "MIT",
+        "MimeTypes": [
+            "video/mp4",
+            "video/webm",
+            "video/x-matroska",
+            "video/ogg",
+            "video/quicktime"
+        ],
+        "Name": "KOpenWallpaper (Video)",
+        "Version": "0.1.0",
+        "Website": "https://github.com/kopenwalpaper"
+    },
+    "MimeType": "video/mp4;video/webm;video/x-matroska;video/ogg;video/quicktime;",
+    "X-KDE-ParentApp": "org.kde.plasmashell",
+    "X-Plasma-DropMimeTypes": [
+        "video/mp4",
+        "video/webm",
+        "video/x-matroska",
+        "video/ogg",
+        "video/quicktime"
+    ]
+}

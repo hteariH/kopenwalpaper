@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "aberkunsky@gmail.com",
+                "Name": "kopenwalpaper"
+            }
+        ],
+        "Category": "",
+        "Description": "Web / HTML / WebGL wallpapers for KDE Plasma (QtWebEngine)",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "com.github.kopenwalpaper.web",
+        "License": "MIT",
+        "Name": "KOpenWallpaper (Web)",
+        "Version": "0.1.0",
+        "Website": "https://github.com/kopenwalpaper"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmashell"
+}

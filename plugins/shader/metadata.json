@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "aberkunsky@gmail.com",
+                "Name": "kopenwalpaper"
+            }
+        ],
+        "Category": "",
+        "Description": "Procedural GLSL shader wallpapers for KDE Plasma (Shadertoy-style)",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "com.github.kopenwalpaper.shader",
+        "License": "MIT",
+        "Name": "KOpenWallpaper (Shader)",
+        "Version": "0.1.0",
+        "Website": "https://github.com/kopenwalpaper"
+    },
+    "X-KDE-ParentApp": "org.kde.plasmashell"
+}

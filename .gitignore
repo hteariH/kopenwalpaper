@@ -1,0 +1,12 @@
+# Compiled shaders — generated from *.frag / *.vert by compile-shaders.sh
+# (install.sh builds them; no need to track build artifacts).
+*.qsb
+
+# Claude Code local settings (machine-specific permissions, not for publishing)
+.claude/
+
+# Editor / OS cruft
+*.swp
+*~
+.DS_Store
+.idea/

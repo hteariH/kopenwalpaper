@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd" >
+  <kcfgfile name=""/>
+
+  <group name="General">
+    <entry name="VideoUrl" type="String">
+      <label>Path/URL to the video file (file:// URL or absolute path)</label>
+      <default></default>
+    </entry>
+    <entry name="FillMode" type="Int">
+      <label>How the video fills the screen (0=stretch, 1=fit, 2=crop)</label>
+      <default>2</default>
+    </entry>
+    <entry name="BackgroundColor" type="Color">
+      <label>Color shown behind the video (e.g. in fit mode)</label>
+      <default>#000000</default>
+    </entry>
+    <entry name="Muted" type="Bool">
+      <label>Mute the video audio</label>
+      <default>true</default>
+    </entry>
+    <entry name="Volume" type="Int">
+      <label>Audio volume in percent (0-100)</label>
+      <default>0</default>
+    </entry>
+    <entry name="PlaybackRate" type="Double">
+      <label>Playback speed multiplier</label>
+      <default>1.0</default>
+    </entry>
+  </group>
+</kcfg>

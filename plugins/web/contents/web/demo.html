@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KOpenWallpaper Web demo</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060a; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Lightweight animated gradient + drifting particles. Pure canvas 2D so it
+// runs anywhere; swap this file for any WebGL/Three.js scene you like.
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, particles = [];
+
+function resize() {
+  W = cv.width = window.innerWidth;
+  H = cv.height = window.innerHeight;
+  const target = Math.round((W * H) / 18000);
+  particles = [];
+  for (let i = 0; i < target; i++) {
+    particles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: 1 + Math.random() * 2.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      h: Math.random() * 360
+    });
+  }
+}
+window.addEventListener('resize', resize);
+resize();
+
+let t = 0;
+function frame() {
+  t += 0.004;
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, `hsl(${(t * 40) % 360}, 60%, 8%)`);
+  g.addColorStop(1, `hsl(${(t * 40 + 80) % 360}, 60%, 14%)`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const p of particles) {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x += W; if (p.x > W) p.x -= W;
+    if (p.y < 0) p.y += H; if (p.y > H) p.y -= H;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${(p.h + t * 60) % 360}, 80%, 70%, 0.85)`;
+    ctx.fill();
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
