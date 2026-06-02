@@ -14,6 +14,7 @@ Kirigami.FormLayout {
     property var wallpaperConfiguration
 
     property string cfg_Preset
+    property alias cfg_PauseWhenObscured: pauseBox.checked
     property alias cfg_CustomShaderUrl: customField.text
     property alias cfg_ImageUrl: imageField.text
     property alias cfg_Speed: speedSpin.realValue
@@ -133,6 +134,12 @@ Kirigami.FormLayout {
     FxSlider {
         id: vignetteSlider
         Kirigami.FormData.label: i18n("Vignette:")
+    }
+
+    QQC2.CheckBox {
+        id: pauseBox
+        Kirigami.FormData.label: i18n("Power saving:")
+        text: i18n("Pause while a window is maximized or fullscreen")
     }
 
     QtDialogs.FileDialog {

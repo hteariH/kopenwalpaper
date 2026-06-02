@@ -15,6 +15,7 @@ Kirigami.FormLayout {
 
     property alias cfg_PageUrl: urlField.text
     property alias cfg_MutePage: muteBox.checked
+    property alias cfg_PauseWhenObscured: pauseBox.checked
 
     RowLayout {
         Kirigami.FormData.label: i18n("Page URL / file:")
@@ -35,6 +36,12 @@ Kirigami.FormLayout {
         id: muteBox
         Kirigami.FormData.label: i18n("Audio:")
         text: i18n("Mute page")
+    }
+
+    QQC2.CheckBox {
+        id: pauseBox
+        Kirigami.FormData.label: i18n("Power saving:")
+        text: i18n("Freeze page while a window is maximized or fullscreen")
     }
 
     QQC2.Label {

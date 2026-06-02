@@ -6,6 +6,10 @@
   <kcfgfile name=""/>
 
   <group name="General">
+    <entry name="PauseWhenObscured" type="Bool">
+      <label>Pause animation while a window is maximized or fullscreen</label>
+      <default>true</default>
+    </entry>
     <entry name="Preset" type="String">
       <label>Built-in shader name (plasma/waves/starfield) or "custom"</label>
       <default>plasma</default>

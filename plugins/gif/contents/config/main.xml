@@ -6,6 +6,10 @@
   <kcfgfile name=""/>
 
   <group name="General">
+    <entry name="PauseWhenObscured" type="Bool">
+      <label>Pause animation while a window is maximized or fullscreen</label>
+      <default>true</default>
+    </entry>
     <entry name="ImageUrl" type="String">
       <label>Path/URL to the animated image (gif/apng/webp); file:// URL or absolute path</label>
       <default></default>

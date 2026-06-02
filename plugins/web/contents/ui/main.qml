@@ -21,6 +21,11 @@ WallpaperItem {
                                   : Qt.resolvedUrl("../web/demo.html")
     }
 
+    // Freezes the page (stops its timers / rAF) while a window is
+    // maximized/fullscreen — saves CPU/GPU when the desktop can't be seen.
+    OcclusionWatcher { id: occ }
+    readonly property bool paused: root.configuration.PauseWhenObscured && occ.obscured
+
     Rectangle {
         anchors.fill: parent
         color: "black"
@@ -37,6 +42,9 @@ WallpaperItem {
         settings.localContentCanAccessRemoteUrls: true
         settings.playbackRequiresUserGesture: false
         audioMuted: root.configuration.MutePage
+        // Active normally; Frozen suspends the page when obscured.
+        lifecycleState: root.paused ? WebEngineView.LifecycleState.Frozen
+                                    : WebEngineView.LifecycleState.Active
 
         onRenderProcessTerminated: function(status, code) {
             console.warn("KOpenWallpaper(Web): render process gone", status, code)

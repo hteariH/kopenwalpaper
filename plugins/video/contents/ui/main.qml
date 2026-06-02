@@ -19,6 +19,17 @@ WallpaperItem {
     // marshalled over the wallpaper KCM's D-Bus call and crashes System Settings.
     readonly property string cfgVideoUrl: root.configuration.VideoUrl
 
+    // Pauses playback while a window is maximized/fullscreen (battery saving).
+    OcclusionWatcher { id: occ }
+    readonly property bool paused: root.configuration.PauseWhenObscured && occ.obscured
+    onPausedChanged: {
+        if (paused) {
+            player.pause()
+        } else if (root.cfgVideoUrl !== "") {
+            player.play()
+        }
+    }
+
     // Solid backdrop, visible in "fit" mode (letterboxing) or before the
     // first frame is decoded.
     Rectangle {
@@ -58,14 +69,14 @@ WallpaperItem {
         interval: 150
         onTriggered: {
             player.stop()
-            if (root.cfgVideoUrl !== "") {
+            if (root.cfgVideoUrl !== "" && !root.paused) {
                 player.play()
             }
         }
     }
 
     Component.onCompleted: {
-        if (root.cfgVideoUrl !== "") {
+        if (root.cfgVideoUrl !== "" && !root.paused) {
             player.play()
         }
     }

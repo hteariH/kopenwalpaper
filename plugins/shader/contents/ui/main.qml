@@ -30,6 +30,10 @@ WallpaperItem {
         return imageUrl
     }
 
+    // Stops the clock while a window is maximized/fullscreen (battery saving).
+    OcclusionWatcher { id: occ }
+    readonly property bool paused: root.configuration.PauseWhenObscured && occ.obscured
+
     // Backdrop while a shader (re)loads or if it fails.
     Rectangle {
         anchors.fill: parent
@@ -89,7 +93,7 @@ WallpaperItem {
         property double lastMs: 0
         interval: 33   // ~30 fps
         repeat: true
-        running: root.visible
+        running: root.visible && !root.paused
         onTriggered: {
             var now = Date.now()
             if (lastMs > 0) {

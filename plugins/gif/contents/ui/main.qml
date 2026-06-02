@@ -17,6 +17,10 @@ WallpaperItem {
     // Must not be a kcfg "Url" type (QUrl can't be D-Bus marshalled by the KCM).
     readonly property string cfgImageUrl: root.configuration.ImageUrl
 
+    // Pauses the GIF while a window is maximized/fullscreen (battery saving).
+    OcclusionWatcher { id: occ }
+    readonly property bool paused: root.configuration.PauseWhenObscured && occ.obscured
+
     Rectangle {
         anchors.fill: parent
         color: root.configuration.BackgroundColor
@@ -28,7 +32,7 @@ WallpaperItem {
         source: root.cfgImageUrl
         fillMode: root.cfgFillMode
         speed: root.configuration.Speed
-        playing: true
+        playing: !root.paused
         cache: false
         asynchronous: true
         // Smooth scaling when the image is up/down-scaled to screen size.

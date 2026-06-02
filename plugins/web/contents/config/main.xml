@@ -6,6 +6,10 @@
   <kcfgfile name=""/>
 
   <group name="General">
+    <entry name="PauseWhenObscured" type="Bool">
+      <label>Pause animation while a window is maximized or fullscreen</label>
+      <default>true</default>
+    </entry>
     <entry name="PageUrl" type="String">
       <label>URL or local .html file to display as wallpaper</label>
       <default></default>

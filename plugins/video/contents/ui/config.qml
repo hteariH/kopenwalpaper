@@ -21,6 +21,7 @@ Kirigami.FormLayout {
 
     // --- bound configuration properties (cfg_<Key>) ---
     property alias cfg_VideoUrl: pathField.text
+    property alias cfg_PauseWhenObscured: pauseBox.checked
     property int cfg_FillMode
     property string cfg_BackgroundColor
     property alias cfg_Muted: muteBox.checked
@@ -108,6 +109,14 @@ Kirigami.FormLayout {
         textFromValue: function(v) { return (v / 100).toFixed(2) + "×" }
         valueFromText: function(t) { return Math.round(parseFloat(t) * 100) }
         onValueModified: realValue = value / 100
+    }
+
+    Item { Kirigami.FormData.isSection: true }
+
+    QQC2.CheckBox {
+        id: pauseBox
+        Kirigami.FormData.label: i18n("Power saving:")
+        text: i18n("Pause while a window is maximized or fullscreen")
     }
 
     // ---- Dialogs ----

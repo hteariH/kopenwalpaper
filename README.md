@@ -160,10 +160,16 @@ compile-shaders.sh  # GLSL → .qsb (via qsb from qt6-shadertools)
 
 ## Performance / notes
 
-Animated wallpapers can pin the GPU. The shader clock is **capped to ~30 fps**
-(a Timer, not a refresh-locked `FrameAnimation`) and **pauses while the wallpaper
-isn't visible**, so a full-screen shader doesn't run at 120/165 Hz forever — this
-matters a lot on laptops / hybrid-GPU setups.
+Animated wallpapers can pin the GPU. KOpenWallpaper keeps this in check:
+
+- The shader clock is **capped to ~30 fps** (a Timer, not a refresh-locked
+  `FrameAnimation`), so a full-screen shader doesn't run at 120/165 Hz forever.
+- Every type **pauses while a window is maximized or fullscreen** on the same
+  screen — video stops, GIF/shader animation halts, the web page is *frozen* —
+  detected via `org.kde.taskmanager`. Toggle it with **Pause while a window is
+  maximized** in each plugin's settings (on by default).
+
+This matters a lot on laptops / hybrid-GPU setups.
 
 ### Plasma 6 plugin gotchas (worth knowing if you hack on this)
 - `main.qml`'s root must be a `WallpaperItem` (from `org.kde.plasma.plasmoid`);
@@ -179,7 +185,7 @@ matters a lot on laptops / hybrid-GPU setups.
 
 ## Roadmap
 
-- [ ] Pause animation when a window is maximised / fullscreen (battery saving) via `org.kde.taskmanager` TasksModel
+- [x] Pause animation when a window is maximised / fullscreen (battery saving) via `org.kde.taskmanager`
 - [ ] Audio reactivity (PipeWire → FFT → shader uniforms)
 - [ ] Runtime compilation of user `.frag` files from the config page
 - [ ] Preset gallery / live previews in the config UI

@@ -19,6 +19,7 @@ Kirigami.FormLayout {
     property int cfg_FillMode
     property string cfg_BackgroundColor
     property alias cfg_Speed: speedSpin.realValue
+    property alias cfg_PauseWhenObscured: pauseBox.checked
 
     RowLayout {
         Kirigami.FormData.label: i18n("Animated image:")
@@ -74,6 +75,12 @@ Kirigami.FormLayout {
         textFromValue: function(v) { return (v / 100).toFixed(2) + "×" }
         valueFromText: function(t) { return Math.round(parseFloat(t) * 100) }
         onValueModified: realValue = value / 100
+    }
+
+    QQC2.CheckBox {
+        id: pauseBox
+        Kirigami.FormData.label: i18n("Power saving:")
+        text: i18n("Pause while a window is maximized or fullscreen")
     }
 
     QtDialogs.FileDialog {
