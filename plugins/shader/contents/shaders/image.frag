@@ -22,6 +22,10 @@ layout(std140, binding = 0) uniform buf {
     float audioBass;
     float audioMid;
     float audioTreble;
+    vec4 spec0;   // 16-band spectrum (4 bands per vec4)
+    vec4 spec1;
+    vec4 spec2;
+    vec4 spec3;
 };
 layout(binding = 1) uniform sampler2D source;
 

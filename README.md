@@ -13,7 +13,7 @@ Plasma itself (no extra daemon, no separate window).
 > |---------|------------------------------------|---------|
 > | **Video**  | `com.github.kopenwalpaper.video`  | mp4 / webm / mkv / ogv / mov, looped, audio, speed |
 > | **GIF**    | `com.github.kopenwalpaper.gif`    | gif / apng / animated webp |
-> | **Shader** | `com.github.kopenwalpaper.shader` | procedural GLSL (plasma / waves / starfield) + **Living image** (animate any picture) + **Audio** visualizer + custom shaders |
+> | **Shader** | `com.github.kopenwalpaper.shader` | procedural GLSL (plasma / waves / starfield / aurora / tunnel / fractal / kaleidoscope) + **Living image** (animate any picture) + **Audio** + **Spectrum** visualizers + custom shaders |
 > | **Web**    | `com.github.kopenwalpaper.web`    | HTML / CSS / canvas / WebGL via QtWebEngine |
 
 ## Screenshots
@@ -23,12 +23,13 @@ Plasma itself (no extra daemon, no separate window).
 | ![plasma](screenshots/plasma.png) | ![starfield](screenshots/starfield.png) |
 | **Web (particle demo)** | **GIF** |
 | ![web](screenshots/web.png) | ![gif](screenshots/gif.png) |
-
-![audio visualizer](screenshots/audio.png)
+| **Audio (energy star)** | **Spectrum** |
+| ![audio visualizer](screenshots/audio.png) | ![spectrum](screenshots/spectrum.png) |
 
 > The **Living image** preset animates any picture you choose (breathing zoom,
 > parallax, bokeh, chromatic aberration). No sample image is bundled — point it
-> at your own wallpaper. The **Audio** preset reacts to whatever is playing.
+> at your own wallpaper. The **Audio** and **Spectrum** presets react to
+> whatever is playing.
 
 ## Requirements
 
@@ -72,10 +73,17 @@ Animated image (gif / apng / webp), fill mode, background colour, animation
 speed.
 
 ### Shader (GLSL)
-Built-in presets: **Living image** (animates any picture you choose), **Plasma**,
-**Waves**, **Starfield**, plus **Custom (.qsb)** for your own shader. A speed
-control drives `iTime`; shaders receive `iTime` (s), `iResolution` (px) and
-`imageAspect`, Shadertoy-style.
+Built-in presets, chosen from a live preview gallery:
+
+- **Living image** — animates any picture you choose
+- Procedural: **Plasma**, **Waves**, **Starfield**, **Aurora**, **Tunnel**,
+  **Fractal** (animated Julia set), **Kaleidoscope**
+- Audio: **Audio** (reactive energy star) and **Spectrum** / **Spectrum ring**
+  (16-band equalizer, classic bars or radial)
+- **Custom** — your own `.frag` (auto-compiled) or `.qsb`
+
+A speed control drives `iTime`; shaders receive `iTime` (s), `iResolution` (px)
+and `imageAspect`, Shadertoy-style.
 
 **Living image.** Choose the *Living image* preset and any file in the **Image**
 field — the effect is applied to that picture in real time. It samples the
@@ -94,9 +102,13 @@ slider (100 % = default, 0 % = off):
 preset, which implies it). A small Python helper
 (`contents/tools/kopen-audio.py`) captures the default sink's monitor via
 `parec`/`pw-record`, runs an FFT and writes smoothed **bass / mid / treble /
-level** values; the shader reads them into the `audioLevel`, `audioBass`,
-`audioMid`, `audioTreble` uniforms (so your custom shaders can react too). The
-helper is started/stopped automatically and pauses with the wallpaper.
+level** values plus a **16-band log-spaced spectrum**; the shader reads them
+into the `audioLevel`, `audioBass`, `audioMid`, `audioTreble` and `spec0..spec3`
+(four `vec4`) uniforms (so your custom shaders can react too). The **Spectrum**
+and **Spectrum ring** presets auto-enable capture. The feed only updates a
+couple of times per second, so the rendered values are interpolated each frame
+for smooth motion. The helper is started/stopped automatically and pauses with
+the wallpaper.
 
 ### Web
 A URL (`https://…`) or a local `.html` file (empty → the bundled particle demo).
@@ -138,6 +150,10 @@ layout(std140, binding = 0) uniform buf {
     float audioBass;
     float audioMid;
     float audioTreble;
+    vec4 spec0;         // 16-band spectrum (4 bands per vec4): spec0..spec3
+    vec4 spec1;
+    vec4 spec2;
+    vec4 spec3;
 };
 // Image shaders also: layout(binding = 1) uniform sampler2D source;
 void main() {
@@ -229,6 +245,8 @@ This matters a lot on laptops / hybrid-GPU setups.
 - [x] Audio reactivity (PipeWire → FFT → shader uniforms)
 - [x] Runtime compilation of user `.frag` files from the config page
 - [x] Preset gallery / live previews in the config UI
+- [x] N-band audio spectrum (16-band) with bar + radial visualizers
+- [x] More procedural shaders (aurora, tunnel, fractal, kaleidoscope)
 - [x] Import Wallpaper Engine projects — video / web / gif via `import-we.py` (scene.pkg is proprietary and out of scope)
 
 ## Contributing

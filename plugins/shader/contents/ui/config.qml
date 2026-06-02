@@ -26,7 +26,9 @@ Kirigami.FormLayout {
     property alias cfg_BokehAmount: bokehSlider.value
     property alias cfg_Vignette: vignetteSlider.value
 
-    readonly property var knownPresets: ["image", "plasma", "waves", "starfield", "audio", "custom"]
+    readonly property var knownPresets: ["image", "plasma", "waves", "starfield",
+        "audio", "spectrum", "spectrumring", "aurora", "tunnel", "fractal",
+        "kaleido", "custom"]
 
     // Shared ~20 fps clock for the preview tiles (only while the page is shown).
     property real previewTime: 0
@@ -40,6 +42,15 @@ Kirigami.FormLayout {
         visible: false; cache: false; asynchronous: true
         source: cfg.cfg_ImageUrl
         sourceSize.width: 512
+    }
+    // Synthetic 16-band spectrum so the Spectrum tiles animate in the gallery.
+    function fakeSpec(o) {
+        var t = cfg.previewTime
+        return Qt.vector4d(
+            0.5 + 0.45 * Math.sin((o + 0) * 0.5 + t * 3.0),
+            0.5 + 0.45 * Math.sin((o + 1) * 0.5 + t * 3.0),
+            0.5 + 0.45 * Math.sin((o + 2) * 0.5 + t * 3.0),
+            0.5 + 0.45 * Math.sin((o + 3) * 0.5 + t * 3.0))
     }
 
     // Normalize a stale/unknown saved preset (e.g. a removed "blueneko").
@@ -64,6 +75,10 @@ Kirigami.FormLayout {
         property real audioTreble: 0.5 + 0.5 * Math.sin(cfg.previewTime * 4.1 + 2.0)
         property real audioLevel: 0.5 + 0.4 * Math.sin(cfg.previewTime * 2.0)
         property variant source: previewImg
+        property vector4d spec0: cfg.fakeSpec(0)
+        property vector4d spec1: cfg.fakeSpec(4)
+        property vector4d spec2: cfg.fakeSpec(8)
+        property vector4d spec3: cfg.fakeSpec(12)
         vertexShader: Qt.resolvedUrl("../shaders/passthrough.vert.qsb")
         fragmentShader: Qt.resolvedUrl("../shaders/" + fragName + ".frag.qsb")
     }
@@ -125,8 +140,14 @@ Kirigami.FormLayout {
         PresetTile { presetKey: "plasma";    label: i18n("Plasma") }
         PresetTile { presetKey: "waves";     label: i18n("Waves") }
         PresetTile { presetKey: "starfield"; label: i18n("Starfield") }
-        PresetTile { presetKey: "audio";     label: i18n("Audio") }
-        PresetTile { presetKey: "custom";    label: i18n("Custom") }
+        PresetTile { presetKey: "audio";       label: i18n("Audio") }
+        PresetTile { presetKey: "spectrum";    label: i18n("Spectrum") }
+        PresetTile { presetKey: "spectrumring"; label: i18n("Spectrum ring") }
+        PresetTile { presetKey: "aurora";      label: i18n("Aurora") }
+        PresetTile { presetKey: "tunnel";      label: i18n("Tunnel") }
+        PresetTile { presetKey: "fractal";     label: i18n("Fractal") }
+        PresetTile { presetKey: "kaleido";     label: i18n("Kaleidoscope") }
+        PresetTile { presetKey: "custom";      label: i18n("Custom") }
     }
 
     RowLayout {

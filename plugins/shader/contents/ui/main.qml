@@ -23,13 +23,22 @@ WallpaperItem {
 
     // --- audio reactivity (see contents/tools/kopen-audio.py) ---
     readonly property bool audioReactive: root.configuration.AudioReactive
-    // The "audio" visualizer needs the feed, so it implies reactivity.
-    readonly property bool audioOn: audioReactive || preset === "audio"
+    // The audio/spectrum visualizers need the feed, so they imply reactivity.
+    readonly property bool audioOn: audioReactive
+        || ["audio", "spectrum", "spectrumring"].indexOf(preset) >= 0
     readonly property string audioFile: "/tmp/kopenwalpaper-audio"
+    // Rendered (smoothed) values — these drive the shader.
     property real audioLevel: 0
     property real audioBass: 0
     property real audioMid: 0
     property real audioTreble: 0
+    // Targets set by the reader; the clock interpolates the rendered values
+    // toward these every frame. The executable DataSource only delivers data
+    // ~1-2x/s, so without this the bars would step instead of glide.
+    property real tgtLevel: 0
+    property real tgtBass: 0
+    property real tgtMid: 0
+    property real tgtTreble: 0
 
     function helperPath() {
         return Qt.resolvedUrl("../tools/kopen-audio.py").toString().replace(/^file:\/\//, "")
@@ -46,25 +55,50 @@ WallpaperItem {
     function stopAudio() {
         audioCtl.connectSource("sh -c '" + audioKillPrev + "true'")
         audioLevel = 0; audioBass = 0; audioMid = 0; audioTreble = 0
+        tgtLevel = 0; tgtBass = 0; tgtMid = 0; tgtTreble = 0
+        var z = Qt.vector4d(0, 0, 0, 0)
+        spec0 = z; spec1 = z; spec2 = z; spec3 = z
+        tgtSpec0 = z; tgtSpec1 = z; tgtSpec2 = z; tgtSpec3 = z
     }
     onAudioOnChanged: audioOn ? startAudio() : stopAudio()
 
-    // Reads the helper's band file ~25x/s. QML XMLHttpRequest can't read local
-    // files (blocked unless QML_XHR_ALLOW_FILE_READ=1), so use the executable
-    // engine's interval polling to `cat` it instead.
+    // 16-band spectrum delivered as uniforms (4 vec4s), exactly like the smooth
+    // scalar path — a dynamic QML texture stuttered, uniforms don't. spec* are
+    // the rendered (smoothed) bands; tgtSpec* are the latest reader targets.
+    property vector4d spec0: Qt.vector4d(0, 0, 0, 0)
+    property vector4d spec1: Qt.vector4d(0, 0, 0, 0)
+    property vector4d spec2: Qt.vector4d(0, 0, 0, 0)
+    property vector4d spec3: Qt.vector4d(0, 0, 0, 0)
+    property vector4d tgtSpec0: Qt.vector4d(0, 0, 0, 0)
+    property vector4d tgtSpec1: Qt.vector4d(0, 0, 0, 0)
+    property vector4d tgtSpec2: Qt.vector4d(0, 0, 0, 0)
+    property vector4d tgtSpec3: Qt.vector4d(0, 0, 0, 0)
+
+    // Reads the helper's "bass mid treble level + 16 bands" line. QML
+    // XMLHttpRequest can't read local files (blocked unless
+    // QML_XHR_ALLOW_FILE_READ=1), so use the executable engine to `cat` it.
+    // NOTE: this engine only delivers ~1-2 results/s regardless of `interval`
+    // (it spawns a process per poll); it sets *targets*, and the clock Timer
+    // interpolates the rendered uniforms toward them so visuals stay smooth.
     P5Support.DataSource {
         id: audioReader
         engine: "executable"
-        interval: 40
+        interval: 33
         connectedSources: (root.audioOn && root.visible && !root.paused)
                           ? ["cat " + root.audioFile] : []
         onNewData: (source, data) => {
-            const parts = (data["stdout"] || "").trim().split(/\s+/)
-            if (parts.length >= 4) {
-                root.audioBass = parseFloat(parts[0]) || 0
-                root.audioMid = parseFloat(parts[1]) || 0
-                root.audioTreble = parseFloat(parts[2]) || 0
-                root.audioLevel = parseFloat(parts[3]) || 0
+            const p = (data["stdout"] || "").trim().split(/\s+/).map(parseFloat)
+            if (p.length >= 4) {
+                root.tgtBass = p[0] || 0
+                root.tgtMid = p[1] || 0
+                root.tgtTreble = p[2] || 0
+                root.tgtLevel = p[3] || 0
+            }
+            if (p.length >= 20) {
+                root.tgtSpec0 = Qt.vector4d(p[4] || 0, p[5] || 0, p[6] || 0, p[7] || 0)
+                root.tgtSpec1 = Qt.vector4d(p[8] || 0, p[9] || 0, p[10] || 0, p[11] || 0)
+                root.tgtSpec2 = Qt.vector4d(p[12] || 0, p[13] || 0, p[14] || 0, p[15] || 0)
+                root.tgtSpec3 = Qt.vector4d(p[16] || 0, p[17] || 0, p[18] || 0, p[19] || 0)
             }
         }
     }
@@ -190,6 +224,11 @@ WallpaperItem {
         property real audioTreble: root.audioTreble
         // Bound to the `source` sampler in image-based shaders.
         property variant source: tex
+        // 16-band spectrum (spec0..spec3) for the spectrum visualizers.
+        property vector4d spec0: root.spec0
+        property vector4d spec1: root.spec1
+        property vector4d spec2: root.spec2
+        property vector4d spec3: root.spec3
 
         // Explicit pass-through VS so stage I/O locations match under the GL
         // RHI backend (the built-in default VS does not export qt_TexCoord0
@@ -204,22 +243,39 @@ WallpaperItem {
         }
     }
 
-    // Ambient clock, capped to ~30 fps. Driving a full-screen fragment shader
-    // at the native refresh (e.g. 165 Hz) pins the GPU continuously — needless
-    // on a laptop. iTime advances by real elapsed time, so motion speed is
-    // independent of the tick rate. Paused while the wallpaper isn't visible.
+    // Animation clock. ~30 fps for ambient shaders (a full-screen shader at the
+    // native 120/165 Hz needlessly pins the GPU on a laptop), but ~60 fps for
+    // audio-reactive presets where smoothness is wanted. iTime advances by real
+    // elapsed time, so motion speed is independent of the tick rate. Paused
+    // while the wallpaper isn't visible.
     Timer {
         id: clock
         property double lastMs: 0
-        interval: 33   // ~30 fps
+        interval: root.audioOn ? 16 : 33   // ~60 fps with audio, else ~30 fps
         repeat: true
         running: root.visible && !root.paused
         onTriggered: {
             var now = Date.now()
-            if (lastMs > 0) {
-                fx.iTime += (now - lastMs) / 1000.0 * root.speed
+            var dt = lastMs > 0 ? (now - lastMs) / 1000.0 : 0
+            if (dt > 0) {
+                fx.iTime += dt * root.speed
             }
             lastMs = now
+
+            // Glide the rendered audio uniforms toward the reader's targets.
+            // The feed only updates ~1-2x/s; this exponential follow (tau ~70ms)
+            // turns those sparse steps into a fluid 60 fps rise/fall.
+            if (root.audioOn && dt > 0) {
+                var a = 1.0 - Math.exp(-dt / 0.07)
+                root.audioBass += (root.tgtBass - root.audioBass) * a
+                root.audioMid += (root.tgtMid - root.audioMid) * a
+                root.audioTreble += (root.tgtTreble - root.audioTreble) * a
+                root.audioLevel += (root.tgtLevel - root.audioLevel) * a
+                root.spec0 = root.spec0.times(1.0 - a).plus(root.tgtSpec0.times(a))
+                root.spec1 = root.spec1.times(1.0 - a).plus(root.tgtSpec1.times(a))
+                root.spec2 = root.spec2.times(1.0 - a).plus(root.tgtSpec2.times(a))
+                root.spec3 = root.spec3.times(1.0 - a).plus(root.tgtSpec3.times(a))
+            }
         }
         onRunningChanged: if (!running) lastMs = 0
     }

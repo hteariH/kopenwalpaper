@@ -4,8 +4,9 @@ kopen-audio — capture the system audio output (the default sink's monitor) and
 write smoothed, auto-gained frequency-band levels to a small file that the
 KOpenWallpaper shader reads. Pure stdlib + numpy; capture via parec/pw-record.
 
-Output file content (overwritten ~40x/s): four floats 0..1, space-separated:
-    bass mid treble level
+Output file content (overwritten ~80x/s): 4 + N floats 0..1, space-separated:
+    bass mid treble level  s0 s1 ... s(N-1)
+where s0..s(N-1) are the N log-spaced spectrum bands (--bands, default 16).
 """
 import argparse
 import os
@@ -62,7 +63,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True, help="file to write band levels to")
     ap.add_argument("--device", default="", help="capture source (default: sink monitor)")
+    ap.add_argument("--bands", type=int, default=16, help="log-spaced spectrum bands")
     args = ap.parse_args()
+    nbands = max(1, args.bands)
 
     device = args.device or default_monitor() or ""
     proc = open_capture(device)
@@ -98,17 +101,29 @@ def main():
         m = (freqs >= lo) & (freqs < hi)
         return float(mag[m].mean()) if m.any() else 0.0
 
+    # Log-spaced edges for the N-band spectrum (30 Hz .. 16 kHz).
+    edges = np.logspace(np.log10(30.0), np.log10(16000.0), nbands + 1)
+
     smooth = np.zeros(4, dtype=np.float32)
     peak = np.full(4, 1e-4, dtype=np.float32)  # per-band running peak (auto-gain)
-    nbytes = N * 2
+    spec_smooth = np.zeros(nbands, dtype=np.float32)
+    spec_peak = np.full(nbands, 1e-4, dtype=np.float32)
+
+    # 50%-overlap (hop = N/2): emit a frame every ~12 ms (~86/s) for smooth
+    # visuals while keeping the full N-point FFT resolution.
+    hop = N // 2
+    hopbytes = hop * 2
+    ring = np.zeros(N, dtype=np.float32)
 
     while True:
-        buf = proc.stdout.read(nbytes)
-        if not buf or len(buf) < nbytes:
+        buf = proc.stdout.read(hopbytes)
+        if not buf or len(buf) < hopbytes:
             if proc.poll() is not None:
                 break
             continue
-        x = np.frombuffer(buf, dtype=np.int16).astype(np.float32) / 32768.0
+        new = np.frombuffer(buf, dtype=np.int16).astype(np.float32) / 32768.0
+        ring = np.concatenate((ring[hop:], new))  # slide the window forward
+        x = ring
         rms = float(np.sqrt(np.mean(x * x)))
         mag = np.abs(np.fft.rfft(x * win))
         raw = np.array([
@@ -124,7 +139,18 @@ def main():
         # Exponential smoothing for less jittery visuals.
         smooth = smooth * 0.6 + norm * 0.4
 
-        line = "%.4f %.4f %.4f %.4f" % tuple(smooth)
+        # N-band log spectrum (same auto-gain + smoothing scheme).
+        spec_raw = np.array(
+            [band(mag, edges[i], edges[i + 1]) for i in range(nbands)],
+            dtype=np.float32,
+        )
+        spec_peak = np.maximum(spec_peak * 0.9995, spec_raw)
+        spec_norm = np.clip(spec_raw / (spec_peak + 1e-6), 0.0, 1.0)
+        spec_smooth = spec_smooth * 0.6 + spec_norm * 0.4
+
+        line = ("%.4f %.4f %.4f %.4f " % tuple(smooth)) + " ".join(
+            "%.3f" % v for v in spec_smooth
+        )
         try:
             tmp = args.out + ".tmp"
             with open(tmp, "w") as f:
