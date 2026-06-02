@@ -1,7 +1,8 @@
 #version 440
-// Audio visualizer: concentric rings whose radius/brightness pulse with the
-// bass/mid/treble bands, a bass-driven central glow and treble sparkle. Band
-// levels (0..1) arrive in the canonical UBO from the kopen-audio helper.
+// Audio visualizer: a living, glowing "energy blob". Its radius swells with
+// bass, spikes into a spiky star with treble, its colour flows with the mids,
+// and a bloom pulses from the centre on bass hits. It keeps breathing gently
+// when silent. Band levels (0..1) come from the canonical UBO (kopen-audio).
 layout(location = 0) in vec2 qt_TexCoord0;
 layout(location = 0) out vec4 fragColor;
 layout(std140, binding = 0) uniform buf {
@@ -21,32 +22,50 @@ layout(std140, binding = 0) uniform buf {
     float audioTreble;
 };
 
+vec3 pal(float t) {
+    return 0.5 + 0.5 * cos(6.28318 * (vec3(0.0, 0.33, 0.67) + t));
+}
+
 void main() {
     float aspect = iResolution.x / max(iResolution.y, 1.0);
     vec2 p = (qt_TexCoord0 - 0.5) * vec2(aspect, 1.0);
-    float d = length(p);
-    float ang = atan(p.y, p.x);
+    float r = length(p);
+    float a = atan(p.y, p.x);
 
-    vec3 col = vec3(0.02, 0.02, 0.05);
+    float bass = audioBass, mid = audioMid, treb = audioTreble, lvl = audioLevel;
 
-    // Bass: warm central glow.
-    col += audioBass * 0.9 * vec3(0.95, 0.25, 0.45) * exp(-d * 3.0);
+    // Reactive contour: idle breathing (stays alive when quiet) + bass swell
+    // + sharp treble spikes + slower mid lobes.
+    float R = 0.26
+            + 0.020 * sin(iTime * 1.3 + a * 3.0)
+            + bass * 0.20
+            + treb * 0.10 * sin(a * 16.0 + iTime * 7.0)
+            + mid  * 0.07 * sin(a * 7.0 - iTime * 3.0);
 
-    // One ring per band; radius and brightness track the level.
-    float r1 = 0.18 + audioBass * 0.12;
-    float r2 = 0.34 + audioMid * 0.12;
-    float r3 = 0.52 + audioTreble * 0.12;
-    float w = 0.014;
-    col += vec3(1.0, 0.30, 0.50) * audioBass   * smoothstep(w, 0.0, abs(d - r1));
-    col += vec3(0.30, 1.0, 0.60) * audioMid    * smoothstep(w, 0.0, abs(d - r2));
-    col += vec3(0.40, 0.65, 1.0) * audioTreble * smoothstep(w, 0.0, abs(d - r3));
+    float d = r - R;  // <0 inside the blob
 
-    // Treble sparkle around the outer ring.
-    float spark = pow(0.5 + 0.5 * sin(ang * 40.0 + iTime * 3.0), 8.0) * audioTreble;
-    col += spark * smoothstep(0.06, 0.0, abs(d - r3)) * vec3(0.6, 0.8, 1.0);
+    float hueShift = iTime * 0.05 + mid * 0.5 + a / 6.28318;
+    vec3 hue = pal(hueShift);
 
-    // Faint rotating hue wash scaled by overall level.
-    col += audioLevel * 0.15 * (0.5 + 0.5 * cos(vec3(0.0, 2.094, 4.188) + ang + iTime));
+    vec3 col = vec3(0.0);
+
+    // Glowing filled interior, brighter toward the centre, lifted by loudness.
+    float inside = smoothstep(0.012, -0.04, d);
+    col += hue * inside * (0.35 + 0.65 * (1.0 - r / max(R, 0.001))) * (0.5 + 0.8 * lvl);
+
+    // Bright rim, flares with treble.
+    col += hue * smoothstep(0.03, 0.0, abs(d)) * (0.8 + 1.4 * treb);
+
+    // Central bass bloom.
+    col += pal(0.05 + iTime * 0.05) * bass * 0.9 * exp(-r * 4.0);
+
+    // Treble sparkle just outside the contour.
+    float sp = pow(0.5 + 0.5 * sin(a * 30.0 + iTime * 4.0), 12.0) * treb;
+    col += sp * smoothstep(0.10, 0.0, abs(d - 0.02)) * vec3(0.8, 0.9, 1.0);
+
+    // Faint background wash + vignette.
+    col += pal(hueShift + 0.5) * 0.03 * (1.0 - r);
+    col *= smoothstep(1.2, 0.2, r);
 
     fragColor = vec4(col, 1.0) * qt_Opacity;
 }
