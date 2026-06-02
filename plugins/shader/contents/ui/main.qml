@@ -7,6 +7,7 @@
  */
 import QtQuick
 import org.kde.plasma.plasmoid
+import org.kde.plasma.plasma5support as P5Support
 
 WallpaperItem {
     id: root
@@ -17,12 +18,63 @@ WallpaperItem {
     readonly property string imageUrl: root.configuration.ImageUrl
     readonly property real speed: root.configuration.Speed
 
+    // file:// of the .qsb produced from a custom .frag (see compileCustom()).
+    property string compiledFrag: ""
+
     function shaderUrl() {
         if (preset === "custom" && customUrl.length > 0) {
-            return customUrl
+            // A precompiled .qsb is used directly; a .frag is compiled on the
+            // fly (compiledFrag) — fall back to plasma until that's ready.
+            if (/\.qsb$/i.test(customUrl)) {
+                return customUrl
+            }
+            return compiledFrag.length > 0 ? compiledFrag
+                                           : Qt.resolvedUrl("../shaders/plasma.frag.qsb")
         }
         return Qt.resolvedUrl("../shaders/" + preset + ".frag.qsb")
     }
+
+    // Runs `qsb` on a user-supplied .frag and caches the result under
+    // ~/.cache/kopenwalpaper, so custom shaders don't need a manual build step.
+    P5Support.DataSource {
+        id: runner
+        engine: "executable"
+        connectedSources: []
+        onNewData: (source, data) => {
+            runner.disconnectSource(source)
+            const out = (data["stdout"] || "").trim()
+            if (data["exit code"] === 0 && out.length > 0) {
+                root.compiledFrag = "file://" + out
+            } else {
+                console.warn("KOpenWallpaper(Shader): qsb failed\n", data["stderr"])
+            }
+        }
+    }
+
+    function compileCustom() {
+        compiledFrag = ""
+        if (preset !== "custom" || customUrl.length === 0 || /\.qsb$/i.test(customUrl)) {
+            return
+        }
+        const inPath = customUrl.replace(/^file:\/\//, "")
+        const outName = inPath.split("/").pop() + ".qsb"
+        const cacheRel = "$HOME/.cache/kopenwalpaper/" + outName
+        // mkdir cache, locate qsb, compile to the cache, echo the path on success.
+        // Body is single-quoted for sh -c; inner " are literal so $HOME expands.
+        // Target set MUST match compile-shaders.sh / passthrough.vert.qsb, or
+        // the GL backend can't find a GLSL version present in both stages and
+        // linking fails (qt_TexCoord0 "no matching output").
+        const cmd = "sh -c 'mkdir -p \"$HOME/.cache/kopenwalpaper\"; "
+            + "QSB=$(command -v qsb6 || command -v qsb || echo /usr/lib/qt6/bin/qsb); "
+            + "\"$QSB\" --glsl \"100es,120,150,300es,330,440\" --hlsl 50 --msl 12 -O "
+            + "-o \"" + cacheRel + "\" \"" + inPath + "\" 1>&2 "
+            + "&& printf %s \"" + cacheRel + "\"'"
+        runner.connectSource(cmd)
+    }
+
+    onCustomUrlChanged: compileCustom()
+    onPresetChanged: compileCustom()
+    Component.onCompleted: compileCustom()
 
     // Texture for image-based shaders (sampler `source`). The "image" preset
     // animates whatever picture the user supplies; procedural presets ignore it.

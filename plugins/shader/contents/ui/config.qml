@@ -81,7 +81,7 @@ Kirigami.FormLayout {
         QQC2.TextField {
             id: customField
             Layout.minimumWidth: Kirigami.Units.gridUnit * 16
-            placeholderText: i18n("Path to a compiled .frag.qsb…")
+            placeholderText: i18n("Pick a .frag (auto-compiled) or a .qsb…")
         }
         QQC2.Button {
             icon.name: "document-open"
@@ -95,7 +95,7 @@ Kirigami.FormLayout {
         Layout.maximumWidth: Kirigami.Units.gridUnit * 22
         wrapMode: Text.WordWrap
         font: Kirigami.Theme.smallFont
-        text: i18n("Compile GLSL with:  ./compile-shaders.sh my.frag\n(needs the std140 'buf' block — see bundled shaders.)")
+        text: i18n("A .frag is compiled with qsb automatically (cached in ~/.cache/kopenwalpaper). It must declare the same std140 'buf' block as the bundled shaders.")
     }
 
     QQC2.SpinBox {
@@ -144,8 +144,8 @@ Kirigami.FormLayout {
 
     QtDialogs.FileDialog {
         id: fileDialog
-        title: i18n("Choose a compiled shader")
-        nameFilters: [ i18n("Compiled shaders (*.qsb)"), i18n("All files (*)") ]
+        title: i18n("Choose a shader")
+        nameFilters: [ i18n("Shaders (*.frag *.qsb)"), i18n("GLSL source (*.frag)"), i18n("Compiled (*.qsb)"), i18n("All files (*)") ]
         onAccepted: customField.text = selectedFile
     }
 

@@ -93,7 +93,11 @@ wallpapers.
 
 ## Writing your own shader
 
-Qt 6 needs shaders precompiled to `.qsb`:
+Easiest: choose the **Custom** preset and pick your `.frag` in the config — the
+plugin compiles it with `qsb` automatically (cached in `~/.cache/kopenwalpaper`)
+and reloads it. You can also point it at a prebuilt `.qsb`.
+
+To build one manually (e.g. for CI or distribution):
 
 ```bash
 ./compile-shaders.sh path/to/my.frag      # → my.frag.qsb
@@ -187,7 +191,7 @@ This matters a lot on laptops / hybrid-GPU setups.
 
 - [x] Pause animation when a window is maximised / fullscreen (battery saving) via `org.kde.taskmanager`
 - [ ] Audio reactivity (PipeWire → FFT → shader uniforms)
-- [ ] Runtime compilation of user `.frag` files from the config page
+- [x] Runtime compilation of user `.frag` files from the config page
 - [ ] Preset gallery / live previews in the config UI
 - [ ] Import Wallpaper Engine projects (scene.pkg)
 
