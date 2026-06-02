@@ -1,0 +1,46 @@
+name: Lint & build shaders
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate plugin manifests (JSON)
+        run: |
+          for f in plugins/*/metadata.json; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1])); print('OK', sys.argv[1])" "$f"
+          done
+
+      - name: Validate config schemas (XML)
+        run: |
+          for f in plugins/*/contents/config/main.xml; do
+            python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse(sys.argv[1]); print('OK', sys.argv[1])" "$f"
+          done
+
+      - name: ShellCheck scripts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          # Gate on real errors; style/info warnings are non-fatal.
+          shellcheck -S error install.sh uninstall.sh compile-shaders.sh
+
+      - name: Install Qt 6 (+ shadertools)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.*'
+          modules: qtshadertools
+          cache: true
+
+      - name: Compile shaders (qsb) — fails on any GLSL error
+        run: ./compile-shaders.sh
+
+      - name: qmllint (best-effort — Plasma QML modules are absent on CI)
+        run: |
+          # Plasma/Kirigami imports can't be resolved here, so treat as
+          # informational rather than gating.
+          qmllint plugins/*/contents/ui/*.qml || true

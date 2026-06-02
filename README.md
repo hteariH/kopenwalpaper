@@ -183,6 +183,12 @@ matters a lot on laptops / hybrid-GPU setups.
 - [ ] Preset gallery / live previews in the config UI
 - [ ] Import Wallpaper Engine projects (scene.pkg)
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, testing, the shader UBO
+contract, and KDE Store publishing. CI (`.github/workflows/lint.yml`) validates
+manifests, compiles the shaders with `qsb`, and runs ShellCheck on every push.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
