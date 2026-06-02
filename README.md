@@ -13,7 +13,7 @@ Plasma itself (no extra daemon, no separate window).
 > |---------|------------------------------------|---------|
 > | **Video**  | `com.github.kopenwalpaper.video`  | mp4 / webm / mkv / ogv / mov, looped, audio, speed |
 > | **GIF**    | `com.github.kopenwalpaper.gif`    | gif / apng / animated webp |
-> | **Shader** | `com.github.kopenwalpaper.shader` | procedural GLSL (plasma / waves / starfield) + **Living image** (animate any picture) + custom shaders |
+> | **Shader** | `com.github.kopenwalpaper.shader` | procedural GLSL (plasma / waves / starfield) + **Living image** (animate any picture) + **Audio** visualizer + custom shaders |
 > | **Web**    | `com.github.kopenwalpaper.web`    | HTML / CSS / canvas / WebGL via QtWebEngine |
 
 ## Screenshots
@@ -24,9 +24,11 @@ Plasma itself (no extra daemon, no separate window).
 | **Web (particle demo)** | **GIF** |
 | ![web](screenshots/web.png) | ![gif](screenshots/gif.png) |
 
+![audio visualizer](screenshots/audio.png)
+
 > The **Living image** preset animates any picture you choose (breathing zoom,
 > parallax, bokeh, chromatic aberration). No sample image is bundled — point it
-> at your own wallpaper.
+> at your own wallpaper. The **Audio** preset reacts to whatever is playing.
 
 ## Requirements
 
@@ -36,6 +38,8 @@ Plasma itself (no extra daemon, no separate window).
   - **QtWebEngine** (`qt6-webengine`) — for Web
   - **qt6-shadertools** (provides `qsb`) — to build the shaders
 - `AnimatedImage` (GIF) and `ShaderEffect` ship with base QtQuick
+- *Audio reactivity (optional):* `python3` + `numpy` and a PipeWire/PulseAudio
+  capture tool (`parec` or `pw-record`)
 
 ## Install
 
@@ -86,6 +90,14 @@ slider (100 % = default, 0 % = off):
 - **Bokeh particles** — soft dots drifting upward
 - **Vignette** — edge darkening
 
+**Audio reactive.** Tick **React to system audio output** (or pick the **Audio**
+preset, which implies it). A small Python helper
+(`contents/tools/kopen-audio.py`) captures the default sink's monitor via
+`parec`/`pw-record`, runs an FFT and writes smoothed **bass / mid / treble /
+level** values; the shader reads them into the `audioLevel`, `audioBass`,
+`audioMid`, `audioTreble` uniforms (so your custom shaders can react too). The
+helper is started/stopped automatically and pauses with the wallpaper.
+
 ### Web
 A URL (`https://…`) or a local `.html` file (empty → the bundled particle demo).
 A *Mute* toggle. Point it at a local HTML/WebGL scene for animated, interactive
@@ -122,6 +134,10 @@ layout(std140, binding = 0) uniform buf {
     float aberration;
     float bokehAmount;
     float vignetteAmount;
+    float audioLevel;   // 0..1, present when audio reactivity is on
+    float audioBass;
+    float audioMid;
+    float audioTreble;
 };
 // Image shaders also: layout(binding = 1) uniform sampler2D source;
 void main() {
@@ -190,7 +206,7 @@ This matters a lot on laptops / hybrid-GPU setups.
 ## Roadmap
 
 - [x] Pause animation when a window is maximised / fullscreen (battery saving) via `org.kde.taskmanager`
-- [ ] Audio reactivity (PipeWire → FFT → shader uniforms)
+- [x] Audio reactivity (PipeWire → FFT → shader uniforms)
 - [x] Runtime compilation of user `.frag` files from the config page
 - [x] Preset gallery / live previews in the config UI
 - [ ] Import Wallpaper Engine projects (scene.pkg)

@@ -16,6 +16,7 @@ Kirigami.FormLayout {
 
     property string cfg_Preset
     property alias cfg_PauseWhenObscured: pauseBox.checked
+    property alias cfg_AudioReactive: audioBox.checked
     property alias cfg_CustomShaderUrl: customField.text
     property alias cfg_ImageUrl: imageField.text
     property alias cfg_Speed: speedSpin.realValue
@@ -25,7 +26,7 @@ Kirigami.FormLayout {
     property alias cfg_BokehAmount: bokehSlider.value
     property alias cfg_Vignette: vignetteSlider.value
 
-    readonly property var knownPresets: ["image", "plasma", "waves", "starfield", "custom"]
+    readonly property var knownPresets: ["image", "plasma", "waves", "starfield", "audio", "custom"]
 
     // Shared ~20 fps clock for the preview tiles (only while the page is shown).
     property real previewTime: 0
@@ -57,6 +58,11 @@ Kirigami.FormLayout {
         property real aberration: cfg.cfg_Aberration
         property real bokehAmount: cfg.cfg_BokehAmount
         property real vignetteAmount: cfg.cfg_Vignette
+        // Synthetic pulse so the audio-visualizer tile looks alive in the gallery.
+        property real audioBass: 0.5 + 0.5 * Math.sin(cfg.previewTime * 3.0)
+        property real audioMid: 0.5 + 0.5 * Math.sin(cfg.previewTime * 2.3 + 1.0)
+        property real audioTreble: 0.5 + 0.5 * Math.sin(cfg.previewTime * 4.1 + 2.0)
+        property real audioLevel: 0.5 + 0.4 * Math.sin(cfg.previewTime * 2.0)
         property variant source: previewImg
         vertexShader: Qt.resolvedUrl("../shaders/passthrough.vert.qsb")
         fragmentShader: Qt.resolvedUrl("../shaders/" + fragName + ".frag.qsb")
@@ -119,6 +125,7 @@ Kirigami.FormLayout {
         PresetTile { presetKey: "plasma";    label: i18n("Plasma") }
         PresetTile { presetKey: "waves";     label: i18n("Waves") }
         PresetTile { presetKey: "starfield"; label: i18n("Starfield") }
+        PresetTile { presetKey: "audio";     label: i18n("Audio") }
         PresetTile { presetKey: "custom";    label: i18n("Custom") }
     }
 
@@ -198,6 +205,20 @@ Kirigami.FormLayout {
     FxSlider {
         id: vignetteSlider
         Kirigami.FormData.label: i18n("Vignette:")
+    }
+
+    QQC2.CheckBox {
+        id: audioBox
+        Kirigami.FormData.label: i18n("Audio:")
+        text: i18n("React to system audio output")
+    }
+
+    QQC2.Label {
+        visible: audioBox.checked || cfg.cfg_Preset === "audio"
+        Layout.maximumWidth: Kirigami.Units.gridUnit * 22
+        wrapMode: Text.WordWrap
+        font: Kirigami.Theme.smallFont
+        text: i18n("Captures the default audio output's monitor via a small Python helper (needs PipeWire/PulseAudio + numpy). The Audio preset visualizes it.")
     }
 
     QQC2.CheckBox {

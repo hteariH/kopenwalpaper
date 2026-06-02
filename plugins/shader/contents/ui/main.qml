@@ -21,6 +21,64 @@ WallpaperItem {
     // file:// of the .qsb produced from a custom .frag (see compileCustom()).
     property string compiledFrag: ""
 
+    // --- audio reactivity (see contents/tools/kopen-audio.py) ---
+    readonly property bool audioReactive: root.configuration.AudioReactive
+    // The "audio" visualizer needs the feed, so it implies reactivity.
+    readonly property bool audioOn: audioReactive || preset === "audio"
+    readonly property string audioFile: "/tmp/kopenwalpaper-audio"
+    property real audioLevel: 0
+    property real audioBass: 0
+    property real audioMid: 0
+    property real audioTreble: 0
+
+    function helperPath() {
+        return Qt.resolvedUrl("../tools/kopen-audio.py").toString().replace(/^file:\/\//, "")
+    }
+    // Kill the previous instance via its PID file (NOT pkill -f: that pattern
+    // also matches this launcher shell, whose args contain the script path).
+    readonly property string audioKillPrev:
+        "P=\"" + audioFile + ".pid\"; [ -f \"$P\" ] && kill \"$(cat \"$P\")\" 2>/dev/null; "
+    function startAudio() {
+        audioCtl.connectSource("sh -c '" + audioKillPrev
+            + "setsid python3 \"" + helperPath() + "\" --out " + audioFile
+            + " >/dev/null 2>&1 &'")
+    }
+    function stopAudio() {
+        audioCtl.connectSource("sh -c '" + audioKillPrev + "true'")
+        audioLevel = 0; audioBass = 0; audioMid = 0; audioTreble = 0
+    }
+    onAudioOnChanged: audioOn ? startAudio() : stopAudio()
+
+    // Reads the helper's band file ~25x/s. QML XMLHttpRequest can't read local
+    // files (blocked unless QML_XHR_ALLOW_FILE_READ=1), so use the executable
+    // engine's interval polling to `cat` it instead.
+    P5Support.DataSource {
+        id: audioReader
+        engine: "executable"
+        interval: 40
+        connectedSources: (root.audioOn && root.visible && !root.paused)
+                          ? ["cat " + root.audioFile] : []
+        onNewData: (source, data) => {
+            const parts = (data["stdout"] || "").trim().split(/\s+/)
+            if (parts.length >= 4) {
+                root.audioBass = parseFloat(parts[0]) || 0
+                root.audioMid = parseFloat(parts[1]) || 0
+                root.audioTreble = parseFloat(parts[2]) || 0
+                root.audioLevel = parseFloat(parts[3]) || 0
+            }
+        }
+    }
+
+    // Fire-and-forget control channel for the audio helper (separate from the
+    // shader-compile runner so their outputs don't get mixed up).
+    P5Support.DataSource {
+        id: audioCtl
+        engine: "executable"
+        connectedSources: []
+        onNewData: (source) => audioCtl.disconnectSource(source)
+    }
+    Component.onDestruction: stopAudio()
+
     function shaderUrl() {
         if (preset === "custom" && customUrl.length > 0) {
             // A precompiled .qsb is used directly; a .frag is compiled on the
@@ -74,7 +132,12 @@ WallpaperItem {
 
     onCustomUrlChanged: compileCustom()
     onPresetChanged: compileCustom()
-    Component.onCompleted: compileCustom()
+    Component.onCompleted: {
+        compileCustom()
+        if (audioOn) {
+            startAudio()
+        }
+    }
 
     // Texture for image-based shaders (sampler `source`). The "image" preset
     // animates whatever picture the user supplies; procedural presets ignore it.
@@ -120,6 +183,11 @@ WallpaperItem {
         property real aberration: root.configuration.Aberration
         property real bokehAmount: root.configuration.BokehAmount
         property real vignetteAmount: root.configuration.Vignette
+        // Audio-reactive band levels (fed by audioReader).
+        property real audioLevel: root.audioLevel
+        property real audioBass: root.audioBass
+        property real audioMid: root.audioMid
+        property real audioTreble: root.audioTreble
         // Bound to the `source` sampler in image-based shaders.
         property variant source: tex
 

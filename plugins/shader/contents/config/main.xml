@@ -48,5 +48,9 @@
       <label>Vignette darkening strength</label>
       <default>1.0</default>
     </entry>
+    <entry name="AudioReactive" type="Bool">
+      <label>React to system audio output (runs the kopen-audio helper)</label>
+      <default>false</default>
+    </entry>
   </group>
 </kcfg>

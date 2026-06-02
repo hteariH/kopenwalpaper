@@ -18,6 +18,10 @@ layout(std140, binding = 0) uniform buf {
     float aberration;
     float bokehAmount;
     float vignetteAmount;
+    float audioLevel;   // overall loudness 0..1 (audio-reactive)
+    float audioBass;
+    float audioMid;
+    float audioTreble;
 };
 layout(binding = 1) uniform sampler2D source;
 
