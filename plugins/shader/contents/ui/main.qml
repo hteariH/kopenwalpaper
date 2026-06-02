@@ -27,18 +27,12 @@ WallpaperItem {
     readonly property bool audioOn: audioReactive
         || ["audio", "spectrum", "spectrumring"].indexOf(preset) >= 0
     readonly property string audioFile: "/tmp/kopenwalpaper-audio"
-    // Rendered (smoothed) values — these drive the shader.
+    // Rendered values — these drive the shader. Produced by playing back the
+    // buffered audio frames at render rate (see the playback block in `clock`).
     property real audioLevel: 0
     property real audioBass: 0
     property real audioMid: 0
     property real audioTreble: 0
-    // Targets set by the reader; the clock interpolates the rendered values
-    // toward these every frame. The executable DataSource only delivers data
-    // ~1-2x/s, so without this the bars would step instead of glide.
-    property real tgtLevel: 0
-    property real tgtBass: 0
-    property real tgtMid: 0
-    property real tgtTreble: 0
 
     function helperPath() {
         return Qt.resolvedUrl("../tools/kopen-audio.py").toString().replace(/^file:\/\//, "")
@@ -55,52 +49,102 @@ WallpaperItem {
     function stopAudio() {
         audioCtl.connectSource("sh -c '" + audioKillPrev + "true'")
         audioLevel = 0; audioBass = 0; audioMid = 0; audioTreble = 0
-        tgtLevel = 0; tgtBass = 0; tgtMid = 0; tgtTreble = 0
         var z = Qt.vector4d(0, 0, 0, 0)
         spec0 = z; spec1 = z; spec2 = z; spec3 = z
-        tgtSpec0 = z; tgtSpec1 = z; tgtSpec2 = z; tgtSpec3 = z
+        afBuf = []; afBase = 0; afLast = -1; afHead = 0; afRate = 80
+        afPrevLast = -1; afPrevMs = 0
     }
     onAudioOnChanged: audioOn ? startAudio() : stopAudio()
 
-    // 16-band spectrum delivered as uniforms (4 vec4s), exactly like the smooth
-    // scalar path — a dynamic QML texture stuttered, uniforms don't. spec* are
-    // the rendered (smoothed) bands; tgtSpec* are the latest reader targets.
+    // 16-band spectrum delivered as uniforms (4 vec4s) — a dynamic QML texture
+    // stuttered, uniforms don't. Set each frame by the playback block.
     property vector4d spec0: Qt.vector4d(0, 0, 0, 0)
     property vector4d spec1: Qt.vector4d(0, 0, 0, 0)
     property vector4d spec2: Qt.vector4d(0, 0, 0, 0)
     property vector4d spec3: Qt.vector4d(0, 0, 0, 0)
-    property vector4d tgtSpec0: Qt.vector4d(0, 0, 0, 0)
-    property vector4d tgtSpec1: Qt.vector4d(0, 0, 0, 0)
-    property vector4d tgtSpec2: Qt.vector4d(0, 0, 0, 0)
-    property vector4d tgtSpec3: Qt.vector4d(0, 0, 0, 0)
 
-    // Reads the helper's "bass mid treble level + 16 bands" line. QML
-    // XMLHttpRequest can't read local files (blocked unless
-    // QML_XHR_ALLOW_FILE_READ=1), so use the executable engine to `cat` it.
-    // NOTE: this engine only delivers ~1-2 results/s regardless of `interval`
-    // (it spawns a process per poll); it sets *targets*, and the clock Timer
-    // interpolates the rendered uniforms toward them so visuals stay smooth.
+    // --- audio frame playback buffer ---
+    // The helper writes a rolling window of ~86 fps frames; we receive a batch
+    // ~1x/s and play it back smoothly. Each frame is a 20-number array
+    // [bass, mid, treble, level, b0..b15] keyed by an absolute monotonic index.
+    property var afBuf: []        // frames, afBuf[0] is absolute index afBase
+    property double afBase: 0     // absolute index of afBuf[0]
+    property double afLast: -1    // newest absolute index received
+    property double afHead: 0     // float playhead (absolute index space)
+    property double afRate: 80    // EMA of the producer's frame rate (fps)
+    property double afPrevLast: -1
+    property double afPrevMs: 0
+    // Target latency: a bit over one delivery-worth of frames, so playback
+    // never underruns between the ~1 Hz batches. ~1.2 s at 86 fps.
+    readonly property int afBufferFrames: 105
+
+    // Reads the helper's rolling window of frames. QML XMLHttpRequest can't read
+    // local files (blocked unless QML_XHR_ALLOW_FILE_READ=1), so use the
+    // executable engine to `cat` it. NOTE: this engine delivers only ~1 result/s
+    // regardless of `interval` and can't stream — measured empirically. So each
+    // poll fetches a whole window of recent frames; we append the ones we
+    // haven't seen (by index) to afBuf and play them back at render rate.
     P5Support.DataSource {
         id: audioReader
         engine: "executable"
-        interval: 33
+        interval: 200
         connectedSources: (root.audioOn && root.visible && !root.paused)
                           ? ["cat " + root.audioFile] : []
         onNewData: (source, data) => {
-            const p = (data["stdout"] || "").trim().split(/\s+/).map(parseFloat)
-            if (p.length >= 4) {
-                root.tgtBass = p[0] || 0
-                root.tgtMid = p[1] || 0
-                root.tgtTreble = p[2] || 0
-                root.tgtLevel = p[3] || 0
+            // Parse the window into frames (file is contiguous, oldest first).
+            const lines = (data["stdout"] || "").split("\n")
+            var frames = []
+            for (var li = 0; li < lines.length; li++) {
+                const p = lines[li].trim().split(/\s+/).map(parseFloat)
+                if (p.length >= 21 && !isNaN(p[0])) frames.push(p)  // [idx, vals…]
             }
-            if (p.length >= 20) {
-                root.tgtSpec0 = Qt.vector4d(p[4] || 0, p[5] || 0, p[6] || 0, p[7] || 0)
-                root.tgtSpec1 = Qt.vector4d(p[8] || 0, p[9] || 0, p[10] || 0, p[11] || 0)
-                root.tgtSpec2 = Qt.vector4d(p[12] || 0, p[13] || 0, p[14] || 0, p[15] || 0)
-                root.tgtSpec3 = Qt.vector4d(p[16] || 0, p[17] || 0, p[18] || 0, p[19] || 0)
+            if (frames.length === 0 || frames[frames.length - 1][0] <= root.afLast)
+                return
+
+            // If the window continues the buffer, append; otherwise (empty, or a
+            // gap after a pause/stall) start fresh — afBase assumes a contiguous
+            // afBuf, so a discontiguous append would corrupt sampling.
+            var contiguous = root.afBuf.length > 0 && frames[0][0] <= root.afLast + 1
+            if (!contiguous) {
+                root.afBuf = []
+                root.afBase = frames[0][0]
+                root.afLast = frames[0][0] - 1
             }
+            for (var fi = 0; fi < frames.length; fi++) {
+                if (frames[fi][0] <= root.afLast) continue   // overlap, already have
+                root.afBuf.push(frames[fi].slice(1))         // drop the index column
+                root.afLast = frames[fi][0]
+            }
+
+            var now = Date.now()
+            if (contiguous && root.afPrevLast >= 0 && root.afPrevMs > 0) {
+                // Track the producer's frame rate (drives playback speed).
+                var dIdx = root.afLast - root.afPrevLast
+                var dSec = (now - root.afPrevMs) / 1000.0
+                if (dIdx > 0 && dSec > 0.05)
+                    root.afRate = root.afRate * 0.6 + (dIdx / dSec) * 0.4
+            } else {
+                // Fresh start: place the playhead one buffer-length behind.
+                root.afHead = root.afLast - root.afBufferFrames
+            }
+            root.afPrevLast = root.afLast
+            root.afPrevMs = now
         }
+    }
+
+    // Linear-interpolated frame at an absolute (fractional) index, clamped to
+    // the buffer. Returns a 20-number array or null if empty.
+    function afSample(absIdx) {
+        var n = afBuf.length
+        if (n === 0) return null
+        var rel = absIdx - afBase
+        if (rel <= 0) return afBuf[0]
+        if (rel >= n - 1) return afBuf[n - 1]
+        var i = Math.floor(rel)
+        var f = rel - i
+        var a = afBuf[i], b = afBuf[i + 1], out = []
+        for (var k = 0; k < a.length; k++) out.push(a[k] + (b[k] - a[k]) * f)
+        return out
     }
 
     // Fire-and-forget control channel for the audio helper (separate from the
@@ -262,19 +306,33 @@ WallpaperItem {
             }
             lastMs = now
 
-            // Glide the rendered audio uniforms toward the reader's targets.
-            // The feed only updates ~1-2x/s; this exponential follow (tau ~70ms)
-            // turns those sparse steps into a fluid 60 fps rise/fall.
-            if (root.audioOn && dt > 0) {
-                var a = 1.0 - Math.exp(-dt / 0.07)
-                root.audioBass += (root.tgtBass - root.audioBass) * a
-                root.audioMid += (root.tgtMid - root.audioMid) * a
-                root.audioTreble += (root.tgtTreble - root.audioTreble) * a
-                root.audioLevel += (root.tgtLevel - root.audioLevel) * a
-                root.spec0 = root.spec0.times(1.0 - a).plus(root.tgtSpec0.times(a))
-                root.spec1 = root.spec1.times(1.0 - a).plus(root.tgtSpec1.times(a))
-                root.spec2 = root.spec2.times(1.0 - a).plus(root.tgtSpec2.times(a))
-                root.spec3 = root.spec3.times(1.0 - a).plus(root.tgtSpec3.times(a))
+            if (root.audioOn && dt > 0 && root.afBuf.length > 0) {
+                // Advance the playhead at the producer's rate (so we replay the
+                // real ~86 fps frames in order), plus a gentle pull toward the
+                // target latency behind the newest frame — a tracking loop that
+                // keeps ~afBufferFrames of buffer without ever freezing.
+                var desired = root.afLast - root.afBufferFrames
+                root.afHead += dt * root.afRate
+                root.afHead += (desired - root.afHead) * (1.0 - Math.exp(-dt / 1.5))
+                if (root.afHead > root.afLast) root.afHead = root.afLast
+                if (root.afHead < root.afBase) root.afHead = root.afBase
+
+                var fr = root.afSample(root.afHead)
+                if (fr) {
+                    root.audioBass = fr[0]; root.audioMid = fr[1]
+                    root.audioTreble = fr[2]; root.audioLevel = fr[3]
+                    root.spec0 = Qt.vector4d(fr[4], fr[5], fr[6], fr[7])
+                    root.spec1 = Qt.vector4d(fr[8], fr[9], fr[10], fr[11])
+                    root.spec2 = Qt.vector4d(fr[12], fr[13], fr[14], fr[15])
+                    root.spec3 = Qt.vector4d(fr[16], fr[17], fr[18], fr[19])
+                }
+
+                // Drop frames the playhead has passed (keep a few for interp).
+                var drop = Math.floor(root.afHead - root.afBase) - 2
+                if (drop > 0) {
+                    root.afBuf.splice(0, drop)
+                    root.afBase += drop
+                }
             }
         }
         onRunningChanged: if (!running) lastMs = 0

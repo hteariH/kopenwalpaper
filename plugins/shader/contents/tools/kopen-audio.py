@@ -4,15 +4,24 @@ kopen-audio — capture the system audio output (the default sink's monitor) and
 write smoothed, auto-gained frequency-band levels to a small file that the
 KOpenWallpaper shader reads. Pure stdlib + numpy; capture via parec/pw-record.
 
-Output file content (overwritten ~80x/s): 4 + N floats 0..1, space-separated:
-    bass mid treble level  s0 s1 ... s(N-1)
-where s0..s(N-1) are the N log-spaced spectrum bands (--bands, default 16).
+Output file: a rolling window of the most recent frames, one per line, oldest
+first (rewritten atomically a few times/s). Each line is:
+    idx  bass mid treble level  s0 s1 ... s(N-1)
+where idx is a monotonic frame counter, the four scalars are 0..1, and
+s0..s(N-1) are the N log-spaced spectrum bands (--bands, default 16).
+
+Why a window and not a single line: the QML side can only poll this file
+~1x/s (Plasma's executable DataSource is that slow, and can't stream), yet we
+produce ~86 frames/s. Emitting a window of recent frames lets one slow read
+carry ~a second of real detail, which QML then plays back at 60 fps — so the
+visuals move continuously instead of stepping once per second.
 """
 import argparse
 import os
 import signal
 import subprocess
 import sys
+from collections import deque
 
 import numpy as np
 
@@ -37,20 +46,68 @@ def default_monitor():
     return None
 
 
-def open_capture(device):
-    """Start a raw s16le mono capture process, return it (parec preferred)."""
-    if _have("parec"):
-        cmd = ["parec", "--raw", "--format=s16le", f"--rate={RATE}", "--channels=1"]
-        if device:
-            cmd += ["-d", device]
-        return subprocess.Popen(cmd, stdout=subprocess.PIPE)
+def _capture_commands(device):
+    """Ordered raw-s16le-mono capture command lines to try.
+
+    pw-record (native PipeWire) is tried first: on PipeWire systems `parec`
+    (the PulseAudio shim) sometimes connects but streams zero bytes, which
+    would hang the read loop forever. parec remains the fallback for pure
+    PulseAudio setups where pw-record isn't installed.
+    """
+    cmds = []
     if _have("pw-record"):
-        cmd = ["pw-record", "--rate", str(RATE), "--channels", "1", "--format", "s16"]
+        c = ["pw-record", "--rate", str(RATE), "--channels", "1", "--format", "s16"]
         if device:
-            cmd += ["--target", device]
-        cmd += ["-"]
-        return subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    sys.stderr.write("kopen-audio: no parec/pw-record available\n")
+            c += ["--target", device]
+        cmds.append(c + ["-"])
+    if _have("parec"):
+        c = ["parec", "--raw", "--format=s16le", f"--rate={RATE}", "--channels=1"]
+        if device:
+            c += ["-d", device]
+        cmds.append(c)
+    return cmds
+
+
+def _read_timeout(stream, n, secs):
+    """Blocking read of n bytes, returning b'' if nothing arrives within secs."""
+    class _TO(Exception):
+        pass
+
+    def _h(*_):
+        raise _TO()
+
+    old = signal.signal(signal.SIGALRM, _h)
+    signal.setitimer(signal.ITIMER_REAL, secs)
+    try:
+        return stream.read(n)
+    except _TO:
+        return b""
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old)
+
+
+def open_capture(device):
+    """Start a capture process whose data actually flows, else exit."""
+    cmds = _capture_commands(device)
+    if not cmds:
+        sys.stderr.write("kopen-audio: no pw-record/parec available\n")
+        sys.exit(1)
+    for cmd in cmds:
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        except Exception:
+            continue
+        # Probe: a tool that connects but never streams (parec on PipeWire)
+        # would otherwise block the loop forever. Drop the probe bytes.
+        if _read_timeout(proc.stdout, 4096, 1.5):
+            return proc
+        sys.stderr.write("kopen-audio: %s produced no data, trying next\n" % cmd[0])
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+    sys.stderr.write("kopen-audio: no capture source produced data\n")
     sys.exit(1)
 
 
@@ -115,6 +172,14 @@ def main():
     hopbytes = hop * 2
     ring = np.zeros(N, dtype=np.float32)
 
+    # Rolling window of formatted frame lines. ~2.2 s at 86 fps so a single
+    # slow QML poll (even a late one) always sees every frame since the last
+    # one. Rewritten to disk every WRITE_EVERY frames to bound I/O churn.
+    window = deque(maxlen=192)
+    WRITE_EVERY = 4
+    idx = 0
+    since_write = 0
+
     while True:
         buf = proc.stdout.read(hopbytes)
         if not buf or len(buf) < hopbytes:
@@ -148,16 +213,22 @@ def main():
         spec_norm = np.clip(spec_raw / (spec_peak + 1e-6), 0.0, 1.0)
         spec_smooth = spec_smooth * 0.6 + spec_norm * 0.4
 
-        line = ("%.4f %.4f %.4f %.4f " % tuple(smooth)) + " ".join(
+        line = ("%d %.4f %.4f %.4f %.4f " % ((idx,) + tuple(smooth))) + " ".join(
             "%.3f" % v for v in spec_smooth
         )
-        try:
-            tmp = args.out + ".tmp"
-            with open(tmp, "w") as f:
-                f.write(line)
-            os.replace(tmp, args.out)
-        except Exception:
-            pass
+        window.append(line)
+        idx += 1
+
+        since_write += 1
+        if since_write >= WRITE_EVERY:
+            since_write = 0
+            try:
+                tmp = args.out + ".tmp"
+                with open(tmp, "w") as f:
+                    f.write("\n".join(window))
+                os.replace(tmp, args.out)
+            except Exception:
+                pass
 
     cleanup()
 

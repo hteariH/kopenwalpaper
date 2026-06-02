@@ -105,10 +105,11 @@ preset, which implies it). A small Python helper
 level** values plus a **16-band log-spaced spectrum**; the shader reads them
 into the `audioLevel`, `audioBass`, `audioMid`, `audioTreble` and `spec0..spec3`
 (four `vec4`) uniforms (so your custom shaders can react too). The **Spectrum**
-and **Spectrum ring** presets auto-enable capture. The feed only updates a
-couple of times per second, so the rendered values are interpolated each frame
-for smooth motion. The helper is started/stopped automatically and pauses with
-the wallpaper.
+and **Spectrum ring** presets auto-enable capture. Plasma can only poll the
+helper's file ~1×/s, so the helper emits a rolling window of recent frames and
+the wallpaper plays them back at render rate — smooth, detailed motion despite
+the slow read. The helper is started/stopped automatically and pauses with the
+wallpaper.
 
 ### Web
 A URL (`https://…`) or a local `.html` file (empty → the bundled particle demo).
